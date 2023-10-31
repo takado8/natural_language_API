@@ -20,15 +20,15 @@ class GPTClient:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "device_names": {
+                        "devices": {
                             "type": "array",
                             "items": {
                                 "type": "string",
-                                "enum": ["lamp", "desk_lamp", "main_light"]
+                                "enum": ["lamp", "desk_lamp", "main_light", "fan"]
                                 }
                         }
                     },
-                    "required": ["device_names"],
+                    "required": ["devices"],
                 }
             }
         ]
@@ -37,7 +37,8 @@ class GPTClient:
             messages=messages,
             functions=functions,
             function_call={"name": "switch"},
-            temperature=0
+            temperature=0,
+            timeout=5
         )
 
         print(completion)
@@ -51,9 +52,8 @@ class GPTClient:
                 arg_dict = json.loads(arguments)
                 print(arg_dict)
                 print(type(arg_dict))
-                if 'device_names' in arg_dict:
-                    return arg_dict['device_names']
-
+                if 'devices' in arg_dict:
+                    return arg_dict['devices']
 
     def send_request(self):
         completion = openai.ChatCompletion.create(
@@ -71,7 +71,7 @@ class GPTClient:
 
 if __name__ == '__main__':
     gpt = GPTClient()
-    device_names = gpt.function_call("zgaś górne światło")
+    device_names = gpt.function_call("apagar la luz principal")
     gpio = APIClient()
     for dev in device_names:
         gpio.switch_device(dev)

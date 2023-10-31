@@ -4,7 +4,7 @@ import time
 import openai
 import json
 
-from client.gpio_client import APIClient
+from client.gpio_client import GPIOClient
 
 
 class GPTClient:
@@ -12,7 +12,8 @@ class GPTClient:
         key = os.environ['GPT_KEY']
         openai.api_key = key
 
-    def function_call(self, message):
+    def function_call(self, message, result_queue):
+
         messages = [{"role": "user", "content": message}]
         functions = [
             {
@@ -32,13 +33,14 @@ class GPTClient:
                 }
             }
         ]
+        # print('sending to gpt for completion...')
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
             functions=functions,
             function_call={"name": "switch"},
             temperature=0,
-            timeout=5
+            timeout=15
         )
 
         print(completion)
@@ -53,7 +55,7 @@ class GPTClient:
                 print(arg_dict)
                 print(type(arg_dict))
                 if 'devices' in arg_dict:
-                    return arg_dict['devices']
+                    result_queue.put(arg_dict['devices'])
 
     def send_request(self):
         completion = openai.ChatCompletion.create(
@@ -72,7 +74,7 @@ class GPTClient:
 if __name__ == '__main__':
     gpt = GPTClient()
     device_names = gpt.function_call("apagar la luz principal")
-    gpio = APIClient()
+    gpio = GPIOClient()
     for dev in device_names:
         gpio.switch_device(dev)
         time.sleep(0.5)

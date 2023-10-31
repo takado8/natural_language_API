@@ -1,7 +1,7 @@
 import requests
 
 
-class APIClient:
+class GPIOClient:
     def __init__(self):
         self.BASE_URL = 'http://192.168.233.18:8081'
 

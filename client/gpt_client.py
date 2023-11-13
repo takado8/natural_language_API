@@ -8,37 +8,21 @@ from client.gpio_client import GPIOClient
 
 
 class GPTClient:
-    def __init__(self):
-        key = os.environ['GPT_KEY']
-        openai.api_key = key
+    def __init__(self, functions_descriptions):
+        self.functions_descriptions = functions_descriptions
 
     def function_call(self, message, result_queue):
-
+        openai.api_key = os.environ['GPT_KEY']
         messages = [{"role": "user", "content": message}]
-        functions = [
-            {
-                "name": "switch",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "devices": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "enum": ["lamp", "desk_lamp", "main_light", "fan"]
-                                }
-                        }
-                    },
-                    "required": ["devices"],
-                }
-            }
-        ]
+        functions = self.functions_descriptions
+
         # print('sending to gpt for completion...')
         completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            # model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=messages,
             functions=functions,
-            function_call={"name": "switch"},
+            function_call={"name": "set_states"},
             temperature=0,
             timeout=15
         )
@@ -51,11 +35,12 @@ class GPTClient:
         if function_call:
             arguments = function_call.get("arguments")
             if arguments:
+                name = function_call.get("name")
                 arg_dict = json.loads(arguments)
                 print(arg_dict)
                 print(type(arg_dict))
-                if 'devices' in arg_dict:
-                    result_queue.put(arg_dict['devices'])
+                if arg_dict:
+                    result_queue.put({'args': arg_dict, 'name': name})
 
     def send_request(self):
         completion = openai.ChatCompletion.create(
@@ -64,13 +49,12 @@ class GPTClient:
                 {"role": "system",
                  "content": "fill in parameter and generate one line string POST request to call api endpoint: /relay/<device_name>"},
                 {"role": "user", "content": "Zgaś lampę"}
-
             ]
         )
 
         print(completion)
 
-
+        
 if __name__ == '__main__':
     gpt = GPTClient()
     device_names = gpt.function_call("apagar la luz principal")

@@ -20,15 +20,3 @@ class ConfigLoader:
 
     def get_config(self, key):
         return self.config.get(key, None)
-
-# Example usage:
-config_file_path = 'config.json'
-config_loader = ConfigLoader(config_file_path)
-
-# Access a specific configuration value (replace 'password' with the actual key you want to access)
-password = config_loader.get_config('password')
-
-if password:
-    print(f"Password: {password}")
-else:
-    print("Password not found in the configuration.")

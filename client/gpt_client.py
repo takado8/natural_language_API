@@ -22,7 +22,7 @@ class GPTClient:
             model="gpt-3.5-turbo-1106",
             messages=messages,
             functions=functions,
-            function_call={"name": "set_states"},
+            function_call="auto",
             temperature=0,
             timeout=15
         )
@@ -33,14 +33,16 @@ class GPTClient:
         # # Step 2: check if GPT wanted to call a function
         function_call = response_message.get("function_call")
         if function_call:
-            arguments = function_call.get("arguments")
-            if arguments:
-                name = function_call.get("name")
-                arg_dict = json.loads(arguments)
-                print(arg_dict)
-                print(type(arg_dict))
-                if arg_dict:
-                    result_queue.put({'args': arg_dict, 'name': name})
+            name = function_call.get("name")
+            if name:
+                arguments = function_call.get("arguments")
+                if arguments:
+                    arg_dict = json.loads(arguments)
+                    print(f'arg_dict: {arg_dict}')
+                else:
+                    arg_dict = {}
+
+                result_queue.put({'args': arg_dict, 'name': name})
 
     def send_request(self):
         completion = openai.ChatCompletion.create(

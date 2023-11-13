@@ -1,4 +1,3 @@
-from client.gpio_client import GPIOClient
 from client.gpt_client import GPTClient
 from functions.functions_service import FunctionsService
 from speech_to_txt.speech_to_txt import SpeechToTxt

@@ -45,12 +45,12 @@ class GPTClient:
                 result_queue.put({'args': arg_dict, 'name': name})
 
     def send_request(self):
+        openai.api_key = os.environ['GPT_KEY']
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system",
-                 "content": "fill in parameter and generate one line string POST request to call api endpoint: /relay/<device_name>"},
-                {"role": "user", "content": "Zgaś lampę"}
+
+                {"role": "user", "content": "sup"}
             ]
         )
 
@@ -58,9 +58,6 @@ class GPTClient:
 
         
 if __name__ == '__main__':
-    gpt = GPTClient()
-    device_names = gpt.function_call("apagar la luz principal")
-    gpio = GPIOClient()
-    for dev in device_names:
-        gpio.switch_device(dev)
-        time.sleep(0.5)
+    gpt = GPTClient(None)
+    gpt.send_request()
+

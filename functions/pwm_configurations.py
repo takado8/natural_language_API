@@ -25,7 +25,7 @@ class PWMDevicesConfigurations(FunctionCallABS):
                         "enum": list(self.theme_values.keys())
                     }
                 },
-                "required": ["devices"],
+                "required": ["theme_name"],
             }
         }
         super().__init__(description)
@@ -42,7 +42,7 @@ class PWMDevicesConfigurations(FunctionCallABS):
                 theme_configs = self.theme_values[theme_name]
                 for config in theme_configs:
                     self.tcp.send(f'{config} {theme_configs[config]}', TcpClient.POST)
-                return 
+                return
         print(f'Error setting theme. args: {args}')
 
     @staticmethod

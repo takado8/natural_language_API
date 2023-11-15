@@ -34,10 +34,21 @@ if __name__ == '__main__':
                 continue
 
             if gpt_result:
-                args = gpt_result['args']
-                function_name = gpt_result['name']
-                if function_name in functions_service.all_functions:
-                    functions_service.all_functions[function_name](args)
+                try:
+                    function_name = gpt_result['name']
+                except:
+                    function_name = None
+                if function_name:
+                    if function_name in functions_service.all_functions:
+                        args = gpt_result['args']
+                        functions_service.all_functions[function_name](args)
+                    else:
+                        print(f'Function \'{function_name}\' not found. Available functions:'
+                              f' {functions_service.all_functions.keys()}')
                 else:
-                    print(f'Function \'{function_name}\' not found. Available functions:'
-                          f' {functions_service.all_functions.keys()}')
+                    try:
+                        content = gpt_result['content']
+                    except:
+                        content = "No content."
+                    
+                    print(f'\n{content}\n')

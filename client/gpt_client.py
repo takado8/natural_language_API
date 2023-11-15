@@ -43,6 +43,9 @@ class GPTClient:
                     arg_dict = {}
 
                 result_queue.put({'args': arg_dict, 'name': name})
+        else:
+            content = response_message.get('content')
+            result_queue.put({'content': content})
 
     def send_request(self):
         openai.api_key = os.environ['GPT_KEY']

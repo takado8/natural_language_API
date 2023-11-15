@@ -17,7 +17,7 @@ class SwitchDevices(FunctionCallABS):
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["lamp", "desk_lamp", "main_light", "fan"]
+                            "enum": ["lamp", "desk_lamp", "ceiling_light", "fan"]
                         }
                     },
                     "states": {

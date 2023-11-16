@@ -3,18 +3,28 @@ from functions.functions_service import FunctionsService
 from speech_to_txt.speech_to_txt import SpeechToTxt
 import multiprocessing
 
-KEYWORD = 'heniu'
+
+KEYWORDS = {'heniu', 'henio', 'aniu'}
+
+
+def has_keywords(transcript):
+    for keyword in KEYWORDS:
+        if keyword in transcript:
+            return keyword
+    return False
+
 
 if __name__ == '__main__':
     sp = SpeechToTxt()
     functions_service = FunctionsService()
-
     gpt = GPTClient([f.description for f in functions_service.all_functions.values()])
 
     while True:
         transcript = sp.listen()
         print(transcript)
-        if transcript and KEYWORD in transcript.lower():
+        keyword = has_keywords(transcript.lower())
+        if transcript and keyword:
+            transcript.replace(keyword, '')
             print("Sending to gpt...")
             result_queue = multiprocessing.Queue()
             p = multiprocessing.Process(target=gpt.function_call, args=(transcript, result_queue))
@@ -50,5 +60,9 @@ if __name__ == '__main__':
                         content = gpt_result['content']
                     except:
                         content = "No content."
-                    
                     print(f'\n{content}\n')
+                    from txt_to_speech.txt_to_speech import TxtToSpeech
+                    text_to_speech = TxtToSpeech()
+
+                    text_to_speech.speak(content)
+

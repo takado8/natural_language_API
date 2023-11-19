@@ -1,4 +1,5 @@
 import speech_recognition as sr
+from utils.measure_time import MeasureTime
 
 
 class SpeechToTxt:
@@ -16,6 +17,7 @@ class SpeechToTxt:
                 r.adjust_for_ambient_noise(source)
                 print('listening...')
                 audio = r.listen(source)
+                MeasureTime.start_measure_function_time('google')
                 print('audio captured. \n')
 
             except Exception as e:
@@ -29,6 +31,8 @@ class SpeechToTxt:
         try:
             # print('sending to google...')
             text_out = record.recognize_google(audio, language="pl-PL", show_all=False)
+            time_consumed = MeasureTime.stop_measure_function_time('google')
+            print(f'time consumed google: {time_consumed}')
             # print('received: ' + text_out)
         except Exception as e:
             print(e)

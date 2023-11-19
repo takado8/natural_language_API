@@ -3,8 +3,10 @@ from functions.functions_service import FunctionsService
 from speech_to_txt.speech_to_txt import SpeechToTxt
 import multiprocessing
 
+from utils.measure_time import MeasureTime
 
-KEYWORDS = {'heniu', 'henio', 'aniu'}
+
+KEYWORDS = {'heniu', 'henio'}
 
 
 def has_keywords(transcript):
@@ -18,6 +20,7 @@ if __name__ == '__main__':
     sp = SpeechToTxt()
     functions_service = FunctionsService()
     gpt = GPTClient([f.description for f in functions_service.all_functions.values()])
+    text_to_speech = None
 
     while True:
         transcript = sp.listen()
@@ -26,6 +29,7 @@ if __name__ == '__main__':
         if transcript and keyword:
             transcript.replace(keyword, '')
             print("Sending to gpt...")
+            MeasureTime.start_measure_function_time('gpt')
             result_queue = multiprocessing.Queue()
             p = multiprocessing.Process(target=gpt.function_call, args=(transcript, result_queue))
             p.start()
@@ -34,7 +38,8 @@ if __name__ == '__main__':
             if p.is_alive():
                 p.terminate()
                 p.join()
-
+            time_consumed_gpt = MeasureTime.stop_measure_function_time('gpt')
+            print(f'time consumed gpt: {time_consumed_gpt}')
             if not result_queue.empty():
                 gpt_result = result_queue.get()
                 print("Result from the process: ")
@@ -61,8 +66,10 @@ if __name__ == '__main__':
                     except:
                         content = "No content."
                     print(f'\n{content}\n')
-                    from txt_to_speech.txt_to_speech import TxtToSpeech
-                    text_to_speech = TxtToSpeech()
+                    MeasureTime.start_measure_function_time('tts')
+                    if not text_to_speech:
+                        from txt_to_speech.txt_to_speech import TxtToSpeech
+                        text_to_speech = TxtToSpeech()
 
                     text_to_speech.speak(content)
 

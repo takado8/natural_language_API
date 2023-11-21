@@ -9,20 +9,23 @@ from openai.types.chat import ChatCompletion
 
 from client.gpio_client import GPIOClient
 
+GPT3 = "gpt-3.5-turbo-1106"
+GPT4 = "gpt-4-1106-preview"
+
 
 class GPTClient:
     def __init__(self, functions_descriptions):
         self.functions_descriptions = functions_descriptions
 
-    def function_call(self, message, result_queue):
+    def function_call(self, message, result_queue, model):
         messages = [{"role": "user", "content": message}]
         functions = self.functions_descriptions
 
         client = OpenAI(api_key=os.environ['GPT_KEY'])
 
         completion = client.chat.completions.create(
-            # model="gpt-4-1106-preview",
-            model="gpt-3.5-turbo-1106",
+            # model="",
+            model=model,
             messages=messages,
             functions=functions,
             function_call="auto",

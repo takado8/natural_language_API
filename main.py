@@ -1,4 +1,4 @@
-from client.gpt_client import GPTClient
+from client.gpt_client import GPTClient, GPT3, GPT4
 from functions.functions_service import FunctionsService
 from speech_to_txt.speech_to_txt import SpeechToTxt
 import multiprocessing
@@ -7,13 +7,22 @@ from utils.measure_time import MeasureTime
 
 
 KEYWORDS = {'heniu', 'henio'}
+KEYWORD_GPT4 = {'turbo'}
 
 
-def has_keywords(transcript):
-    for keyword in KEYWORDS:
+def has_keywords(transcript, keywords):
+    for keyword in keywords:
         if keyword in transcript:
             return keyword
     return False
+
+
+def remove_keyword(txt, keyword):
+    words = txt.split()
+    if keyword in words:
+        words.remove(keyword)
+        txt = ' '.join(words)
+    return txt
 
 
 if __name__ == '__main__':
@@ -25,13 +34,20 @@ if __name__ == '__main__':
     while True:
         transcript = sp.listen()
         print(transcript)
-        keyword = has_keywords(transcript.lower())
+        keyword = has_keywords(transcript.lower(), KEYWORDS)
         if transcript and keyword:
-            transcript.replace(keyword, '')
-            print("Sending to gpt...")
+            transcript = remove_keyword(transcript, keyword)
+            gpt4_keyword = has_keywords(transcript, KEYWORD_GPT4)
+            if gpt4_keyword:
+                transcript = remove_keyword(transcript, gpt4_keyword)
+                gpt_version = GPT4
+            else:
+                gpt_version = GPT3
+
+            print(f"Sending to {gpt_version}")
             MeasureTime.start_measure_function_time('gpt')
             result_queue = multiprocessing.Queue()
-            p = multiprocessing.Process(target=gpt.function_call, args=(transcript, result_queue))
+            p = multiprocessing.Process(target=gpt.function_call, args=(transcript, result_queue, gpt_version))
             p.start()
 
             p.join(20)

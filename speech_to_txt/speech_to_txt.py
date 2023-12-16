@@ -6,18 +6,27 @@ class SpeechToTxt:
     @staticmethod
     def _record():
         r = sr.Recognizer()
-        r.dynamic_energy_threshold = False
+        r.dynamic_energy_threshold = True
+        # r.energy_threshold = 50
+        # r.dynamic_energy_threshold = False
         r.energy_threshold = 20000
         r.pause_threshold = 2
         r.dynamic_energy_adjustment_ratio = 1.3
+        # mic = sr.Microphone()
+        # desired_sample_rate = 48000
+
+        # mic = sr.Microphone(sample_rate=desired_sample_rate)
         mic = sr.Microphone()
         audio = None
         with mic as source:
             try:
-                r.adjust_for_ambient_noise(source)
+                # r.adjust_for_ambient_noise(source)
                 print('listening...')
                 audio = r.listen(source)
                 MeasureTime.start_measure_function_time('google')
+                with open("data/temp.wav", "wb+") as f:
+                    f.write(audio.get_wav_data())
+                    print("saved")
                 print('audio captured. \n')
 
             except Exception as e:

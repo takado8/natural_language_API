@@ -40,7 +40,7 @@ if __name__ == '__main__':
     # led = 'sl'
     # t.send( "20", led)
     # t.send("40", led)
-    # lock_time = 180
+    # lock_time = 200
     # t.send(f"lock {lock_time}", "GET")
     # time.sleep(3)
     # normal_mode_time = 60 * 120

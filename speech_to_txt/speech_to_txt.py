@@ -36,7 +36,7 @@ class SpeechToTxt:
 
     @staticmethod
     def _recognize(record, audio):
-        text_out = '>> recognition fail <<'
+        text_out = None
         try:
             # print('sending to google...')
             text_out = record.recognize_google(audio, language="pl-PL", show_all=False)
@@ -50,8 +50,9 @@ class SpeechToTxt:
 
     def listen(self) -> [str, None]:
         rec, audio = self._record()
-        text = self._recognize(rec, audio).lower()
+        text = self._recognize(rec, audio)
         if text:
+            text = text.lower()
             print('[' + text + ']')
             return text
 

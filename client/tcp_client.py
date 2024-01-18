@@ -1,3 +1,4 @@
+import random
 import socket
 import time
 
@@ -33,12 +34,21 @@ class TcpClient:
 
 
 if __name__ == '__main__':
-    t = TcpClient(host=ESP_LOCKER_IP, port=8080)
+    # t = TcpClient(host=ESP_LOCKER_IP, port=8080)
     # t = TcpClient(host=ESP_DRYER_IP, port=8080)
-    # t = TcpClient(host=PICO_IP, port=8080)
+    t = TcpClient(host=PICO_IP, port=8080)
     # time.sleep(1)
-    # led = 'sl'
-    # t.send( "20", led)
+    leds = ['r0', 'g0', 'b0']
+    configs = [
+        {'r0': 100, 'b0': 30, 'g0': 0},
+        {'r0': 100, 'b0': 0, 'g0': 20},
+        {'r0': 0, 'b0': 100, 'g0': 40},
+               ]
+    while True:
+        for config in configs:
+            for color in config:
+                t.send(f'{color} {config[color]}', method_type=TcpClient.POST)
+            time.sleep(25)
     # t.send("40", led)
     # lock_time = 200
     # t.send(f"lock {lock_time}", "GET")
@@ -48,7 +58,7 @@ if __name__ == '__main__':
     # cycles = 2
     # t.send(f"{normal_mode_time} {reversed_mode_time} {cycles}", "POST")
     # time.sleep(6)
-    t.send("open", "GET")
+    # t.send("open", "GET")
     # t.send("80", led)
     # t.send(f'{led} 0;', 'POST')
 

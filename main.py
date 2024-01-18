@@ -13,8 +13,9 @@ KEYWORD_GPT4 = {'turbo'}
 
 
 def has_keywords(transcript, keywords):
+    words = transcript.split()
     for keyword in keywords:
-        if keyword in transcript:
+        if keyword in words:
             return keyword
     return False
 
@@ -42,7 +43,7 @@ def save_keyword_audio_file():
 def save_failed_recognition_audio_file():
     keywords_len = len(os.listdir('data/eryk'))
     failed_len = len(os.listdir('data/failed_recognition'))
-    if failed_len < keywords_len:
+    if failed_len < keywords_len + 70:
         temp_file_path_wav = "data/temp.wav"
         temp_file_path_mp3 = "data/temp.mp3"
         with open("data/index.json") as f:
@@ -57,7 +58,7 @@ def save_failed_recognition_audio_file():
 def save_no_keyword_recognition_audio_file():
     keywords_len = len(os.listdir('data/eryk'))
     no_keyword_len = len(os.listdir('data/no_keyword'))
-    if no_keyword_len < keywords_len:
+    if no_keyword_len < keywords_len + 70:
         temp_file_path_wav = "data/temp.wav"
         temp_file_path_mp3 = "data/temp.mp3"
         with open("data/index.json") as f:
@@ -89,27 +90,29 @@ if __name__ == '__main__':
                     gpt_version = GPT4
                 else:
                     gpt_version = GPT3
+                if transcript:
+                    print(f"Sending to {gpt_version}")
+                    MeasureTime.start_measure_function_time('gpt')
+                    result_queue = multiprocessing.Queue()
+                    p = multiprocessing.Process(target=gpt.function_call, args=(transcript, result_queue, gpt_version))
+                    p.start()
 
-                print(f"Sending to {gpt_version}")
-                MeasureTime.start_measure_function_time('gpt')
-                result_queue = multiprocessing.Queue()
-                p = multiprocessing.Process(target=gpt.function_call, args=(transcript, result_queue, gpt_version))
-                p.start()
-
-                p.join(30)
-                if p.is_alive():
-                    p.terminate()
-                    p.join()
-                time_consumed_gpt = MeasureTime.stop_measure_function_time('gpt')
-                print(f'time consumed gpt: {time_consumed_gpt}')
-                if not result_queue.empty():
-                    gpt_result = result_queue.get()
-                    print("Result from the process: ")
-                    print(gpt_result)
+                    p.join(30)
+                    if p.is_alive():
+                        p.terminate()
+                        p.join()
+                    time_consumed_gpt = MeasureTime.stop_measure_function_time('gpt')
+                    print(f'time consumed gpt: {time_consumed_gpt}')
+                    if not result_queue.empty():
+                        gpt_result = result_queue.get()
+                        print("Result from the process: ")
+                        print(gpt_result)
+                    else:
+                        print("Process did not provide a result within the time limit.")
+                        continue
                 else:
-                    print("Process did not provide a result within the time limit.")
+                    print('Empty.')
                     continue
-
                 if gpt_result:
                     try:
                         function_name = gpt_result['name']

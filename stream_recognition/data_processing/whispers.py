@@ -13,14 +13,14 @@ def speech_to_txt(filepath):
             file=audio_file,
             response_format="text",
             language='pl',
-            temperature=0.1
+            temperature=0.0
         )
     except Exception as ex:
         print(ex)
         return ''
     finally:
         audio_file.close()
-    return transcript.lower().replace(".", "").replace("\n", "")
+    return transcript.lower().replace("\n", "")
 
 
 if __name__ == '__main__':

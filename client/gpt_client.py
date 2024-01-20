@@ -45,8 +45,14 @@ class GPTClient:
                     print(f'arg_dict: {arg_dict}')
                 else:
                     arg_dict = {}
-
-                result_queue.put({'args': arg_dict, 'name': name})
+                if result_queue:
+                    result_queue.put()
+                else:
+                    return {'args': arg_dict, 'name': name}
         else:
             content = response_message.content
-            result_queue.put({'content': content})
+            if result_queue:
+                result_queue.put({'content': content})
+            else:
+                return {'content': content}
+

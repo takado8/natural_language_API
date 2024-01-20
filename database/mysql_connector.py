@@ -5,7 +5,7 @@ from config.config_loader import ConfigLoader
 
 class MySQLConnector:
     def __init__(self):
-        config_file_path = 'config.json'
+        config_file_path = '../config.json'
         config_loader = ConfigLoader(config_file_path)
         database = config_loader.get_config('database')
         self.mydb = mysql.connector.connect(

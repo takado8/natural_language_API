@@ -1,18 +1,16 @@
+import asyncio
 import threading
-import librosa.display
-import numpy as np
+import uuid
+
 import pyaudio
 from pydub import AudioSegment
-from pydub.silence import detect_nonsilent
 from data_processing.whispers import speech_to_txt
-from data_processing.mfcc import crop_or_pad
 import audioop
 from handle_txt import HandleTxtInput
 from utils.measure_time import MeasureTime
 from collections import deque
 import matplotlib.pyplot as plt
-
-
+from keyword_recognition.call_api import send_frame, get_recognition
 
 
 recording_time_multiplier = 2
@@ -24,76 +22,50 @@ frames_per_buffer = 1024
 labels_dir = 'data/30 words'
 silence_length = 35
 output_filename = 'data/temp/audio_record.mp3'
-keywords = {'marvin', 'sheila'}
+keyword_recording_dir = 'data/temp/marvin'
+keywords = {'marvin'}
 
 
-def plot_list(y_values):
+def plot_list(y_values, line_x=None, lines_y=None):
     x_values = range(1, len(y_values) + 1)  # Assuming x-values are 1, 2, 3, ...
 
     plt.plot(x_values, y_values, marker='o')
+
+    if line_x is not None:
+        plt.axvline(x=line_x, color='r', linestyle='--', label='Cut')
+
+    if lines_y is not None:
+
+        plt.axhline(y=lines_y[0], color='b', linestyle='-.', label=f'Avg vol {lines_y[0]}')
+        plt.axhline(y=lines_y[1], color='g', linestyle='-.', label=f'Thresh {lines_y[1]}')
+
     plt.xlabel('X-axis Label')
     plt.ylabel('Y-axis Label')
     plt.title('Plot of Y-values')
     plt.grid(True)
+    plt.legend()  # Add legend if there are lines
     plt.show()
 
+
 class StreamRecognition:
-    def __init__(self, model_path='neural_network/30words.h5'):
-        print('loading model...')
+    def __init__(self, model_path='neural_network/30words2.h5'):
+        self.lock = threading.Lock()
+        self.is_running = False
         self.model_path = model_path
         self.model = None
-        self.labels = {0: 'bed', 1: 'bird', 2: 'cat', 3: 'dog', 4: 'down', 5: 'eight', 6: 'five', 7: 'four', 8: 'go', 9: 'happy', 10: 'house', 11: 'left', 12: 'marvin', 13: 'nine', 14: 'no', 15: 'off', 16: 'on', 17: 'one', 18: 'right', 19: 'seven', 20: 'sheila', 21: 'six', 22: 'stop', 23: 'three', 24: 'tree', 25: 'two', 26: 'up', 27: 'wow', 28: 'yes', 29: 'zero'}
+        # self.labels = {0: 'none', 1: 'sheila'}
 
-        self.previous_ending_frames = None
         self.is_recording_enabled = False
         self.threshold_percent = 0.1
         self.txt_input_handler = HandleTxtInput()
+        self.sample_size = None
 
-    def recognize(self, frames):
-        if not self.model:
-            from keras.models import load_model
-            self.model = load_model(self.model_path)
-        desired_length_in_samples = int(input_length_seconds * target_sample_rate)
-        frame_size = int(len(frames) / recording_time_multiplier)
-        frame_shift = int(len(frames) / batch_size)
-        mfccs_batch = []
-        ending_frames = frames[-int(len(frames)/recording_time_multiplier):]
-        if self.previous_ending_frames:
-            frames = self.previous_ending_frames + frames
-            frames_nb = int(batch_size + batch_size / recording_time_multiplier)
-        else:
-            frames_nb = batch_size
+    async def stream_recognition_async(self):
+        py_audio = pyaudio.PyAudio()
+        if not self.sample_size:
+            self.sample_size = py_audio.get_sample_size(pyaudio.paInt16)
 
-        for i in range(frames_nb):
-            # Convert frames to numpy array and normalize to floating-point
-            audio_data = np.frombuffer(b''.join(frames[i * frame_shift:i * frame_shift + frame_size]),
-                dtype=np.int16).astype(np.float32) / 32768.0
-            audio_data = crop_or_pad(audio_data, desired_length_in_samples)
-
-            mfccs = librosa.feature.mfcc(y=audio_data, sr=target_sample_rate, n_mfcc=13)
-            mfccs_batch.append(mfccs)
-        self.previous_ending_frames = ending_frames
-        # Convert list of mfccs to a numpy array for batch prediction
-        x_batch = np.stack(mfccs_batch, axis=0)  # Shape: (snapshot_count, time_steps, num_mfcc)
-        x_batch = np.expand_dims(x_batch, axis=-1)  # Add a channel dimension
-        
-        # Perform batch prediction
-        results = self.model.predict(x_batch, verbose=0, batch_size=len(x_batch))
-
-        for result in results:
-            prediction = np.argmax(result)
-            percent = int(round(result[prediction] * 100, 0))
-            label = self.labels[prediction]
-            if not self.is_recording_enabled:
-                # print(f'{percent}% {label} ')
-                if label in keywords and percent > 95:
-                    print('Keyword detected!')
-                    self.is_recording_enabled = True
-                    self.previous_ending_frames.clear()
-
-    def stream_recognition_async(self):
-        p = pyaudio.PyAudio()
-        stream = p.open(format=pyaudio.paInt16,
+        stream = py_audio.open(format=pyaudio.paInt16,
             channels=1,
             rate=target_sample_rate,
             input=True,
@@ -102,6 +74,7 @@ class StreamRecognition:
             previous_frames = []
             recorded_frames = []
             silent_chunks = 0
+            result_task = None
             while True:
                 frames = []
                 volume_list = []
@@ -109,6 +82,16 @@ class StreamRecognition:
                                       recording_time_multiplier)):
                     data = stream.read(frames_per_buffer)
                     frames.append(data)
+                    send_frame(data)
+                    await asyncio.sleep(0)
+                    if result_task is not None and result_task.done():
+                        result = await result_task
+                        print(result)
+                        if result == "True":
+                            self.is_recording_enabled = True
+                        result_task = None
+                    # else:
+                    #     print(result_task)
                     if self.is_recording_enabled:
                         print('Recording...')
                         rms = audioop.rms(data, 2)  # Get RMS value to determine volume
@@ -128,88 +111,92 @@ class StreamRecognition:
                     recorded_frames.extend(frames)
 
                 if recorded_frames and not self.is_recording_enabled:
-                    self.save_recording_as_mp3(previous_frames + recorded_frames, p)
+                    cropped_frames, keyword_frames = self.crop_keyword_from_recording(previous_frames + recorded_frames)
+                    self.save_as_mp3(cropped_frames)
+                    self.save_as_mp3(keyword_frames,
+                        filename=f'{keyword_recording_dir}/marvin{str(uuid.uuid4())[-8:]}.mp3')
                     MeasureTime.start_measure_function_time('speech to text')
                     txt = speech_to_txt(output_filename)
+                    # txt = ''
                     execution_time2 = MeasureTime.stop_measure_function_time('speech to text')
                     self.txt_input_handler.handle_txt_input(txt)
                     recorded_frames.clear()
                     print(f'Speech to txt time: {execution_time2}')
-                if not self.is_recording_enabled:
+                if not self.is_recording_enabled and result_task is None:
                     previous_frames = frames
-                    # Offload processing (recognition) to another thread
-                    threading.Thread(target=self.recognize, args=(frames,)).start()
+                    print('creating task')
+                    result_task = asyncio.create_task(get_recognition())
 
-        except KeyboardInterrupt:
-            print("Stopping...")
         finally:
             stream.stop_stream()
             stream.close()
-            p.terminate()
+            py_audio.terminate()
 
-    def save_recording_as_mp3(self, frames, p, threshold=0.3):
-        # Convert `frames` into an AudioSegment object
+    def crop_keyword_from_recording(self, frames, threshold=0.9):
         audio_len = len(frames)
         queue_len = 3
         volume_list = deque(maxlen=queue_len)
-        avg_list =[]
+        avg_list = []
         silent_chunks = 0
         loud_chunks = 0
-        max_silent_chunks = 2
+        max_silent_chunks = 3
         max_loud_chunks = 2
         i = 0
         top_avg_volume = -1
         low_avg_volume = 999
         top_found = False
+        low_found = False
+        low_point = -1
         total_avg_volume = sum([audioop.rms(frame, 2) for frame in frames]) / len(frames)
         for data in frames:
-            rms = audioop.rms(data, 2)  # Get RMS value to determine volume
-            current_volume = rms# / 32768  # Normalized RMS as a volume ratio
+            current_volume = audioop.rms(data, 2)  # Get RMS value to determine volume
             volume_list.append(current_volume)
             if len(volume_list) >= queue_len:
                 avg_volume = sum(volume_list) / len(volume_list)
                 avg_list.append(avg_volume)
-
-                print(f'avg volume: {avg_volume}')
-
                 # find first word top volume
-                if not top_found and avg_volume > top_avg_volume and avg_volume > threshold * total_avg_volume:
-                    top_avg_volume = avg_volume
+                if not low_found:
+                    if not top_found and avg_volume > top_avg_volume and avg_volume > threshold * total_avg_volume:
+                        top_avg_volume = avg_volume
 
-                if not top_found and current_volume < top_avg_volume:
-                    silent_chunks += 1
-                    if silent_chunks >= max_silent_chunks:
-                        top_found = True
-                else:
-                    silent_chunks = 0
-                # find end silence after first word
-                if top_found:
-                    if avg_volume < low_avg_volume:
-                        low_avg_volume = avg_volume
-
-                    if current_volume > avg_volume and current_volume > threshold * avg_volume:
-                        loud_chunks += 1
-                        if loud_chunks >= max_loud_chunks:
-                            # beginning of second word found
-                            i -= 2
-                            break
+                    if not top_found and current_volume < top_avg_volume:
+                        silent_chunks += 1
+                        if silent_chunks >= max_silent_chunks:
+                            top_found = True
                     else:
-                        loud_chunks = 0
+                        silent_chunks = 0
+                    # find end silence after first word
+                    if top_found:
+                        if avg_volume < low_avg_volume:
+                            low_avg_volume = avg_volume
 
+                        if current_volume > avg_volume and current_volume > threshold * total_avg_volume:
+                            loud_chunks += 1
+                            if loud_chunks >= max_loud_chunks:
+                                # beginning of second word found
+                                i -= 2
+                                low_found = True
+                                low_point = i
+                        else:
+                            loud_chunks = 0
             i += 1
-        # plot_list(avg_list)
-        frames = frames[i:]
-        cropped_audio_len = len(frames)
+        plot_list(avg_list, low_point, (total_avg_volume, total_avg_volume * threshold))
+        main_frames = frames[low_point:]
+        cropped_frames = frames[:low_point]
+        cropped_audio_len = len(main_frames)
         percent_cropped = round((1 - (cropped_audio_len / audio_len)) * 100, 2)
         print(f'cropped: {audio_len} to {cropped_audio_len} by {percent_cropped}%')
+        return main_frames, cropped_frames
+
+    def save_as_mp3(self, frames, filename=output_filename):
         raw_data = b''.join(frames)
-        audio_segment = AudioSegment(data=raw_data, sample_width=p.get_sample_size(pyaudio.paInt16),
+        audio_segment = AudioSegment(data=raw_data, sample_width=self.sample_size,
             frame_rate=target_sample_rate, channels=1)
-        # Export the AudioSegment object to an MP3 file
-        audio_segment.export(output_filename, format="mp3")
-        print(f"Recording has been saved to {output_filename}")
+        audio_segment.export(filename, format="mp3")
+        print(f"Recording has been saved to {filename}")
 
 
 if __name__ == '__main__':
     sr = StreamRecognition()
-    sr.stream_recognition_async()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(sr.stream_recognition_async())

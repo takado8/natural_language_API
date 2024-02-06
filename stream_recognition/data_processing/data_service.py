@@ -1,7 +1,7 @@
 import numpy as np
 
-from data_processing.mfcc import generate_mfcc
-from data_processing.prepare_training_data import prepare_training_data
+from stream_recognition.data_processing.mfcc import generate_mfcc
+from stream_recognition.data_processing.prepare_training_data import prepare_training_data
 from sklearn.model_selection import train_test_split
 
 
